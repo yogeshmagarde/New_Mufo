@@ -11,19 +11,25 @@ from rest_framework import status, response
 from rest_framework.generics import ListAPIView
 from rest_framework.filters import SearchFilter
 from rest_framework import filters
+from User.models import *
+from Audio_Jockey.models import *
+from Coins_club_owner.models import *
+from Coins_trader.models import *
+from Jockey_club_owner.models import *
 from master.models import *
-
 
 class FollowUser(APIView):
     @method_decorator(authenticate_token)
     def get(self, request, follow):
         try:
             following_common = Common.objects.get(uid=follow)  # Rename variable
+            profiles = [Audio_Jockey, Coins_club_owner,Coins_trader, Jockey_club_owner, User]
+            for profile_model in profiles:
+                    profile_data = profile_model.objects.filter(token=request.user.token).first()
+                    u = profile_data.__class__.__name__
+                    print(u)
+                    
 
-            print("Following User:", following_common)  # Debugging print
-            print("Request User:", request.user)       # Debugging print
-
-            # Rename the variable to avoid conflict
             follow_user, created = Follow1.objects.get_or_create(user=request.user, following_user=following_common)
 
             print("Follow User:", follow_user)
@@ -31,12 +37,15 @@ class FollowUser(APIView):
             if not created:
                 follow_user.delete()
                 return Response({'success': True, 'message': 'Unfollowed user'})
-            else:
+            else: 
+                if User == u :
+                    Use = User.object.get(token=request.user.token)
+                    print(Use.Name,"use")
                 return Response({'success': True, 'message': 'Followed user'})
             # return Response({'success': False, 'message': 'User does not exist.'})
         except Common.DoesNotExist:
             return Response({'success': False, 'message': 'User does not exist.'})
-
+    
     
 class FollowerList(APIView):
     @method_decorator(authenticate_token)
@@ -177,3 +186,5 @@ class Alluser(APIView):
         data=Common.objects.all()
         serialiser = masterSerializer(data,many=True)
         return Response(serialiser.data)
+    
+

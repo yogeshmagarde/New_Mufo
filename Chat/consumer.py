@@ -12,8 +12,9 @@ import json, html, pytz,uuid
 from channels.generic.websocket import AsyncWebsocketConsumer
 
 class ChatConsumer(AsyncWebsocketConsumer):
-
+   
     joined_room = {}    
+    
     async def connect(self):
         self.room_code = self.scope["url_route"]["kwargs"]["room_code"]
         self.group_room_code = f'chat_{self.room_code}'
@@ -53,6 +54,10 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
         await self.accept()
 
+        if self.user:
+            await self.add_coins(self.user, 10)
+    
+      
     async def disconnect(self, code):
         if self.sender in self.joined_room:
             del ChatConsumer.joined_room[self.sender]
@@ -170,6 +175,12 @@ class ChatConsumer(AsyncWebsocketConsumer):
         joined_room_profile_pictures = list(ChatConsumer.joined_room.values())
         await self.send(text_data=json.dumps({"message": message,"sender": sender,"profile_picture": sender_profile_picture,'date': date,"filtered_joined_room":joined_room_profile_pictures}))
 
+    
+
+    @database_sync_to_async
+    def add_coins(self, user, amount):
+            user.coins += amount
+            user.save()
 
     @database_sync_to_async
     def save_message(self, text: str, user=None):
