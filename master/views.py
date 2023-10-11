@@ -17,19 +17,13 @@ from Coins_club_owner.models import *
 from Coins_trader.models import *
 from Jockey_club_owner.models import *
 from master.models import *
+from datetime import datetime
 
 class FollowUser(APIView):
     @method_decorator(authenticate_token)
     def get(self, request, follow):
         try:
-            following_common = Common.objects.get(uid=follow)  # Rename variable
-            profiles = [Audio_Jockey, Coins_club_owner,Coins_trader, Jockey_club_owner, User]
-            for profile_model in profiles:
-                    profile_data = profile_model.objects.filter(token=request.user.token).first()
-                    u = profile_data.__class__.__name__
-                    print(u)
-                    
-
+            following_common = Common.objects.get(uid=follow)  
             follow_user, created = Follow1.objects.get_or_create(user=request.user, following_user=following_common)
 
             print("Follow User:", follow_user)
@@ -37,12 +31,45 @@ class FollowUser(APIView):
             if not created:
                 follow_user.delete()
                 return Response({'success': True, 'message': 'Unfollowed user'})
-            else: 
-                if User == u :
-                    Use = User.object.get(token=request.user.token)
-                    print(Use.Name,"use")
+            else:
+                # followed_users = Follow1.objects.filter(user=request.user).values_list('following_user__user', flat=True)
+                # print(followed_users)
+                if created:
+                     profiles = [Audio_Jockey, Coins_club_owner,Coins_trader, Jockey_club_owner, User]
+                     for profile_model in profiles:
+                            profile_data = profile_model.objects.filter(token=request.user.token).first()
+    
+                            if isinstance(profile_data, User):
+                                 user_profile = User.objects.get(token=request.user.token)
+                                 user_profile.coins += 10
+                                 user_profile.save()
+                                 print(user_profile.coins)
+                            elif isinstance(profile_data, Audio_Jockey):
+                                 user_profile = Audio_Jockey.objects.get(token=request.user.token)
+                                 user_profile.coins += 10
+                                 user_profile.save()
+                                 print(user_profile.coins)
+
+                            elif isinstance(profile_data, Coins_club_owner):
+                                 user_profile = Coins_club_owner.objects.get(token=request.user.token)
+                                 user_profile.coins += 10
+                                 user_profile.save()
+                                 print(user_profile.coins)
+
+                            elif isinstance(profile_data, Coins_trader):
+                                 user_profile = Coins_trader.objects.get(token=request.user.token)
+                                 user_profile.coins += 10
+                                 user_profile.save()
+                                 print(user_profile.coins)
+
+                            elif isinstance(profile_data, Jockey_club_owner):
+                                 user_profile = Jockey_club_owner.objects.get(token=request.user.token)
+                                 user_profile.coins += 10
+                                 user_profile.save()
+                                 print(user_profile.coins)
+                                 
+
                 return Response({'success': True, 'message': 'Followed user'})
-            # return Response({'success': False, 'message': 'User does not exist.'})
         except Common.DoesNotExist:
             return Response({'success': False, 'message': 'User does not exist.'})
     

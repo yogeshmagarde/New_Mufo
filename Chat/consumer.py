@@ -296,54 +296,52 @@ class TestConsumer(AsyncWebsocketConsumer):
 #####################################################################################################
 
 
-class ChatConsumer1(AsyncWebsocketConsumer):
+# class ChatConsumer1(AsyncWebsocketConsumer):
 
-    async def connect(self):
-        token = self.scope['query_string'].decode().split('=')[1]
-        self.user = await database_sync_to_async(Common.objects.get)(token=token)
-        if not self.user:
-            await self.close()
+#     async def connect(self):
+#         token = self.scope['query_string'].decode().split('=')[1]
+#         self.user = await database_sync_to_async(Common.objects.get)(token=token)
+#         if not self.user:
+#             await self.close()
 
-        otheruser_id = int(self.scope['url_route']['kwargs']['user_id'])
-        otheruser = await database_sync_to_async(Common.objects.get)(id=otheruser_id)
-        self.otheruser = otheruser
-        sorted_user_ids = sorted([otheruser_id, self.user.id])
-        self.chat_room = f"conversation_{sorted_user_ids[0]}_{sorted_user_ids[1]}"
-        print(self.chat_room)
+#         otheruser_id = int(self.scope['url_route']['kwargs']['user_id'])
+#         otheruser = await database_sync_to_async(Common.objects.get)(id=otheruser_id)
+#         self.otheruser = otheruser
+#         sorted_user_ids = sorted([otheruser_id, self.user.id])
+#         self.chat_room = f"conversation_{sorted_user_ids[0]}_{sorted_user_ids[1]}"
+#         print(self.chat_room)
 
-        await self.channel_layer.group_add(self.chat_room, self.channel_name)
-        await self.accept()
-        await self.send(text_data=json.dumps({'status': "online"}))
+#         await self.channel_layer.group_add(self.chat_room, self.channel_name)
+#         await self.accept()
+#         await self.send(text_data=json.dumps({'status': "online"}))
 
-    async def disconnect(self,code):
-        await self.channel_layer.group_discard(self.chat_room, self.channel_name)
+#     async def disconnect(self,code):
+#         await self.channel_layer.group_discard(self.chat_room, self.channel_name)
 
-    async def receive(self, text_data):
-        text_data_json = json.loads(text_data)
-        message = text_data_json["message"]
-        sender_id = self.user.id
-        saved = await database_sync_to_async(ChatMessage.objects.create)(sender=self.user, receiver=self.otheruser, content=message)
-        if saved:
-            date_created = str(saved.timestamp)
-        else:
-            date_created = str(datetime.now(tz=pytz.UTC))
-        await self.channel_layer.group_send(
-            self.chat_room, {"type": "chat_message",
-                              "message":message,
-                              "date": date_created,
-                              "sender_id":sender_id
-                              }
-                           ) 
+#     async def receive(self, text_data):
+#         text_data_json = json.loads(text_data)
+#         message = text_data_json["message"]
+#         sender_id = self.user.id
+#         saved = await database_sync_to_async(ChatMessage.objects.create)(sender=self.user, receiver=self.otheruser, content=message)
+#         if saved:
+#             date_created = str(saved.timestamp)
+#         else:
+#             date_created = str(datetime.now(tz=pytz.UTC))
+#         await self.channel_layer.group_send(
+#             self.chat_room, {"type": "chat_message",
+#                               "message":message,
+#                               "date": date_created,
+#                               "sender_id":sender_id
+#                               }
+#                            ) 
 
-    async def chat_message(self, text_data):
-        message = text_data['message']
-        date = text_data.get('date')
-        sender_id = text_data.get('sender_id')
-        await self.send(text_data=json.dumps({'message': message,' date':date,
-                                             'sender_id': sender_id,
-                                              }))
-
-    
+#     async def chat_message(self, text_data):
+#         message = text_data['message']
+#         date = text_data.get('date')
+#         sender_id = text_data.get('sender_id')
+#         await self.send(text_data=json.dumps({'message': message,' date':date,
+#                                              'sender_id': sender_id,
+#                                               }))
 
 class OnetoOneChatConsumer(AsyncWebsocketConsumer):
     async def connect(self):
