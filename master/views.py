@@ -17,7 +17,7 @@ from Coins_club_owner.models import *
 from Coins_trader.models import *
 from Jockey_club_owner.models import *
 from master.models import *
-from datetime import datetime
+from datetime import datetime,timezone
 
 class FollowUser(APIView):
     @method_decorator(authenticate_token)
@@ -25,54 +25,68 @@ class FollowUser(APIView):
         try:
             following_common = Common.objects.get(uid=follow)  
             follow_user, created = Follow1.objects.get_or_create(user=request.user, following_user=following_common)
-
+        
             print("Follow User:", follow_user)
             
             if not created:
                 follow_user.delete()
                 return Response({'success': True, 'message': 'Unfollowed user'})
             else:
-                # followed_users = Follow1.objects.filter(user=request.user).values_list('following_user__user', flat=True)
-                # print(followed_users)
                 if created:
-                     profiles = [Audio_Jockey, Coins_club_owner,Coins_trader, Jockey_club_owner, User]
-                     for profile_model in profiles:
-                            profile_data = profile_model.objects.filter(token=request.user.token).first()
-    
-                            if isinstance(profile_data, User):
-                                 user_profile = User.objects.get(token=request.user.token)
-                                 user_profile.coins += 10
-                                 user_profile.save()
-                                 print(user_profile.coins)
-                            elif isinstance(profile_data, Audio_Jockey):
-                                 user_profile = Audio_Jockey.objects.get(token=request.user.token)
-                                 user_profile.coins += 10
-                                 user_profile.save()
-                                 print(user_profile.coins)
+                    today = datetime.now(timezone.utc)
+                    start_of_day = today.replace(hour=0, minute=0, second=0, microsecond=0)
+                    end_of_day = today.replace(hour=23, minute=59, second=59, microsecond=999999)
+                    today_follow_user = Follow1.objects.filter(user=request.user,created_at__range=(start_of_day, end_of_day)).count()
+                    print(today_follow_user)
+                    if today_follow_user == 10:
+                        print("10 user complite")
+                        profiles = [Audio_Jockey, Coins_club_owner,Coins_trader, Jockey_club_owner, User]
+                        for profile_model in profiles:
+                                profile_data = profile_model.objects.filter(token=request.user.token).first()
+        
+                                if isinstance(profile_data, User):
+                                    user_profile = User.objects.get(token=request.user.token)
+                                    if not user_profile.coins:
+                                        print(f"get {10} coins user account.")
+                                        user_profile.coins += 10
+                                        user_profile.save()
+                                        print(user_profile.coins)
+                                elif isinstance(profile_data, Audio_Jockey):
+                                    user_profile = Audio_Jockey.objects.get(token=request.user.token)
+                                    if not user_profile.coins:
+                                        print(f"get {10} coins user account.")
+                                        user_profile.coins += 10
+                                        user_profile.save()
+                                        print(user_profile.coins)
 
-                            elif isinstance(profile_data, Coins_club_owner):
-                                 user_profile = Coins_club_owner.objects.get(token=request.user.token)
-                                 user_profile.coins += 10
-                                 user_profile.save()
-                                 print(user_profile.coins)
+                                elif isinstance(profile_data, Coins_club_owner):
+                                    user_profile = Coins_club_owner.objects.get(token=request.user.token)
+                                    if not user_profile.coins:
+                                        print(f"get {10} coins user account.")
+                                        user_profile.coins += 10
+                                        user_profile.save()
+                                        print(user_profile.coins)
 
-                            elif isinstance(profile_data, Coins_trader):
-                                 user_profile = Coins_trader.objects.get(token=request.user.token)
-                                 user_profile.coins += 10
-                                 user_profile.save()
-                                 print(user_profile.coins)
+                                elif isinstance(profile_data, Coins_trader):
+                                    user_profile = Coins_trader.objects.get(token=request.user.token)
+                                    if not user_profile.coins:
+                                        print(f"get {10} coins user account.")
+                                        user_profile.coins += 10
+                                        user_profile.save()
+                                        print(user_profile.coins)
 
-                            elif isinstance(profile_data, Jockey_club_owner):
-                                 user_profile = Jockey_club_owner.objects.get(token=request.user.token)
-                                 user_profile.coins += 10
-                                 user_profile.save()
-                                 print(user_profile.coins)
-                                 
+                                elif isinstance(profile_data, Jockey_club_owner):
+                                    user_profile = Jockey_club_owner.objects.get(token=request.user.token)
+                                    if not user_profile.coins:
+                                        print(f"get {10} coins user account.")
+                                        user_profile.coins += 10
+                                        user_profile.save()
+                                        print(user_profile.coins)     
 
                 return Response({'success': True, 'message': 'Followed user'})
         except Common.DoesNotExist:
             return Response({'success': False, 'message': 'User does not exist.'})
-    
+
     
 class FollowerList(APIView):
     @method_decorator(authenticate_token)
@@ -85,6 +99,7 @@ class FollowerList(APIView):
         serializer = getfollowerSerializer(queryset, many=True)
         
         return Response(serializer.data)
+    
 
     def annotate_followers(self, followers, followed_users):
         user_dict = {}
