@@ -51,6 +51,7 @@ class FollowUser(APIView):
                                         user_profile.coins += 10
                                         user_profile.save()
                                         print(user_profile.coins)
+                                        
                                 elif isinstance(profile_data, Audio_Jockey):
                                     user_profile = Audio_Jockey.objects.get(token=request.user.token)
                                     if not user_profile.coins:

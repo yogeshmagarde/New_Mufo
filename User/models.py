@@ -45,3 +45,8 @@ class Social_media(models.Model):
     Snapchat = models.CharField(max_length=100, blank=True, null=True, unique=True)
     def __str__(self):
         return str(self.Google)
+
+class claim_coins(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    claim_coins = models.BooleanField(default=False)
+    created_at = models.CharField(max_length=100)

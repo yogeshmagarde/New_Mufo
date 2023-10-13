@@ -2,7 +2,7 @@
 
 
 from rest_framework import serializers
-from .models import User,Follow,Social_media
+from .models import User,Follow,Social_media,claim_coins
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -91,3 +91,10 @@ class SnapchatLoginSerializer(serializers.ModelSerializer):
     class Meta:
         model = Social_media
         fields =['Snapchat']
+
+
+
+class CoinsclaimSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = claim_coins
+        fields = ('claim_coins','created_at')

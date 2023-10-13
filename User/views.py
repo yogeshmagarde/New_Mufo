@@ -443,3 +443,27 @@ class Snapchatlogin(APIView):
             return Response({'data': {'data': (user.data), 'profile': (profile_data.__class__.__name__), 'id': (profile_data.id),  'access': str(profile_data.token), 'message': "Login successfully with Snapchat"}})
         else:
             return Response({"message":"invalid"})
+
+
+
+
+
+class Coinsclaim(APIView):
+    serialiser_class = CoinsclaimSerializer
+    @method_decorator(authenticate_token)
+    def post(self,request):
+        serialiser = self.serialiser_class(data = request.data)
+        if serialiser .is_valid():
+            claim = serialiser.initial_data.get('claim_coins')
+            created_at = serialiser.initial_data.get('created_at')
+            if claim:
+                today_claimed_count = claim_coins.objects.filter(user=request.user,created_at=created_at).count()
+                print(today_claimed_count)
+                if today_claimed_count==0:
+                    user = User.objects.get(token=request.user.token)
+                    user.coins += 10
+                    user.save()
+                    claim_coins.objects.create(user=request.user,created_at=created_at, claim_coins=True)
+                    return Response({"data": f"{10}Coins added successfully"})
+                return Response({"data":"You have already claimed coins today."})
+            return Response({"data":"data"})

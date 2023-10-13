@@ -25,4 +25,5 @@ urlpatterns = [
     path("googlelogin/", Googlelogin.as_view(), name="Googlelogin"),
     path("Facebooklogin/", Facebooklogin.as_view(), name="Facebooklogin"),
     path("Snapchatlogin/", Snapchatlogin.as_view(), name="Facebooklogin"),
+    path("Coinsclaim/", Coinsclaim.as_view(), name="Coinsclaim"),
 ]
