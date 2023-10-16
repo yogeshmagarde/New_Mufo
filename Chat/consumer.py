@@ -2,15 +2,207 @@
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
 from .models import Chat , Room , Visitor,ChatMessage
-from User.models import User
+from User.models import User,room_join_claim_coins
 from master.models import Common
 from bots import BotHandler
 from datetime import datetime
 from asgiref.sync import sync_to_async
 import json, html, pytz,uuid
-
+import asyncio
 from channels.generic.websocket import AsyncWebsocketConsumer
+from django.utils import timezone
 
+class ChatConsumer1(AsyncWebsocketConsumer):
+    joined_room = {}
+    async def connect(self):
+        self.room_code = self.scope["url_route"]["kwargs"]["room_code"]
+        self.group_room_code = f'chat_{self.room_code}'
+
+        self.room_model = await self.get_room_model()
+        self.bots = await self.active_bots()
+        self.bothandler = BotHandler(self.bots, self.group_room_code)
+
+
+        self.sender_token = self.scope.get("query_string").decode('utf-8')
+        if '=' in self.sender_token:
+            self.sender_token = self.sender_token.split('=')[1]
+        else:
+            self.sender_token = None
+
+        self.user = await self.get_user_from_token(self.sender_token)
+        if not self.user:
+            self.sender = "admin"
+            self.sender_profile_picture = ""
+        else:
+            self.sender = str(self.user)
+            print(self.sender)
+            self.sender_profile_picture = str(self.user.profile_picture)
+
+        await self.channel_layer.group_add(self.group_room_code, self.channel_name)
+
+        await self.channel_layer.group_send(
+            self.group_room_code,
+            {
+                "type": "chat_message",
+                "message": "Joined the room!",
+                "sender": self.sender,
+                "sender_profile_picture": self.sender_profile_picture
+            }
+        )
+ 
+        if self.sender_profile_picture:
+            ChatConsumer1.joined_room[self.sender] = self.sender_profile_picture
+        
+        await self.accept()
+        
+        if self.user:
+            await self.add_coins(self.user, 10)
+
+    async def disconnect(self, close_code):
+        if self.sender in self.joined_room:
+            del ChatConsumer1.joined_room[self.sender]
+        
+        await self.channel_layer.group_send(
+                self.group_room_code,
+                {
+                    "type": "chat.message",
+                    "message": "Leave the room",
+                    "sender": self.sender,
+                    "sender_profile_picture": self.sender_profile_picture,
+                }
+            )
+        await self.channel_layer.group_discard(self.group_room_code, self.channel_name)
+        print('Disconnected!')
+    
+    async def receive(self, text_data):
+        receive_dict = json.loads(text_data)
+        
+
+        if 'action' in receive_dict.get('message', {}):
+            action = receive_dict['message']['action']
+
+            if action == 'new-offer' or action == 'new-answer':
+                await self.handle_sdp_exchange(receive_dict)
+            else:
+                pass
+        else:
+            await self.handle_regular_message(receive_dict)
+
+    async def handle_sdp_exchange(self, receive_dict):
+        date_created = receive_dict['date']
+        action = receive_dict['message']['action']
+        message = receive_dict['message']
+
+        receiver_channel_name = receive_dict['message']['receiver_channel_name']
+        print('Sending to', receiver_channel_name)
+        receive_dict['message']['receiver_channel_name'] = self.channel_name
+        await self.channel_layer.send(
+            receiver_channel_name,
+            {
+                'type': 'send.sdp',
+                'receive_dict': receive_dict,
+            }
+        )
+
+    async def handle_regular_message(self, receive_dict):
+        message = receive_dict.get('message')
+        saved = await self.save_message(message)
+        if saved:
+            date_created = str(saved.created)
+        else:
+            date_created = str(datetime.now(tz=pytz.UTC))
+
+        sender_profile_picture = str(self.user.profile_picture) if self.user else ""
+        await self.channel_layer.group_send(
+            self.group_room_code,
+            {
+                'type': 'chat.message',
+                'message': message,
+                "sender": self.sender,
+                "date": date_created,
+                "sender_profile_picture": sender_profile_picture
+            }
+        )
+        
+        
+
+    async def send_sdp(self, event):
+        receive_dict = event['receive_dict']
+        date_created = receive_dict.get('date')
+        action = receive_dict.get('action')
+        message = receive_dict.get('message')
+        await self.send(text_data=json.dumps({
+            'date': date_created,
+            'action': action,
+            'message': message,
+        }))
+    async def chat_message(self, event):
+        is_blocked = await self.get_blocked()
+        if is_blocked:
+            return 0
+        message = event.get('message')
+        date_created = event.get('date')
+        sender = event.get('sender')
+        sender_profile_picture = event.get('sender_profile_picture')
+        joined_room_profile_pictures = list(ChatConsumer1.joined_room.values())
+        await self.send(text_data=json.dumps({
+            'message': message,
+            "sender": sender,
+            "profile_picture": sender_profile_picture,
+            'date': date_created,
+            "filtered_joined_room":joined_room_profile_pictures
+        }))
+    
+
+    @database_sync_to_async
+    def add_coins(self, user, amount):
+            user.coins += amount
+            user.save()
+            v=room_join_claim_coins.objects.create(
+            user=user,
+            created_at=timezone.now(),
+            claim_coins=True
+            )
+    @database_sync_to_async
+    def get_user_from_token(self, token):
+        try:
+            if not token:
+                return None
+            return User.objects.get(token=token)
+        except User.DoesNotExist:
+            return None
+     
+    @database_sync_to_async
+    def get_room_model(self):
+        return Room.objects.get(room_code=self.room_code)
+
+    @database_sync_to_async
+    def active_bots(self):
+        bots = [x for x in self.room_model.active_bots.all()]
+        return bots
+
+    @database_sync_to_async
+    def get_blocked(self):
+        if self.user and self.room_model:
+            query = self.room_model.blocked_users.filter(token=self.user.token)
+            return any(query)
+
+    @database_sync_to_async
+    def save_message(self, text: str, user=None):
+        if not user:
+            user = self.user
+        if user:
+            chat = Chat.objects.create(
+                from_user=user,
+                text=text
+            )
+
+            self.room_model.chat_set.add(chat)
+
+            return chat
+    
+   
+            
 class ChatConsumer(AsyncWebsocketConsumer):
    
     joined_room = {}    
